@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stick Viltrumite Arena</title>
+    <style>
+        :root {
+            --neon-pink: #ff00ff;
+            --neon-green: #00ff41;
+            --neon-red: #ff0000;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #050505;
+            font-family: 'Courier New', Courier, monospace;
+            color: var(--neon-green);
+            user-select: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            border: 5px solid var(--neon-pink);
+            box-sizing: border-box;
+        }
+
+        canvas { display: block; }
+
+        #ui-overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+        }
+
+        #menu {
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 4rem;
+            text-shadow: 0 0 20px var(--neon-pink);
+            color: var(--neon-pink);
+            margin-bottom: 20px;
+        }
+
+        .controls-hint {
+            color: #aaa;
+            margin-bottom: 30px;
+            text-align: center;
+            line-height: 1.5;
+        }
+
+        button {
+            padding: 15px 50px;
+            font-size: 2rem;
+            background: transparent;
+            border: 3px solid var(--neon-green);
+            color: var(--neon-green);
+            cursor: pointer;
+            transition: 0.3s;
+            pointer-events: auto;
+        }
+
+        button:hover {
+            background: var(--neon-green);
+            color: #000;
+            box-shadow: 0 0 30px var(--neon-green);
+        }
+
+        #hud {
+            position: absolute;
+            top: 20px; left: 20px;
+            display: none;
+        }
+
+        .bar-container {
+            width: 300px;
+            height: 25px;
+            background: #222;
+            border: 2px solid var(--neon-green);
+            position: relative;
+        }
+
+        #health-bar-fill {
+            width: 100%; height: 100%;
+            background: var(--neon-green);
+            transition: width 0.2s;
+        }
+
+        #ability-bar {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+        }
+
+        .ability-slot {
+            width: 60px;
+            height: 60px;
+            border: 2px solid #333;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            color: #555;
+        }
+
+        .unlocked {
+            border-color: var(--neon-pink);
+            color: var(--neon-pink);
+            box-shadow: 0 0 10px rgba(255, 0, 255, 0.3);
+        }
+
+        #boss-hud {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60%;
+            text-align: center;
+            display: none;
+        }
+
+        .boss-name { color: var(--neon-red); font-weight: bold; margin-bottom: 5px; }
+
+        #kill-counter { margin-top: 10px; font-size: 1.2rem; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="ui-overlay">
+        <div id="menu">
+            <h1>VILTRUMITE ARENA</h1>
+            <div class="controls-hint">
+                ARROWS: Move & Jump<br>
+                Q,W,E,R,T,Y,U,I: Abilities (Unlock as you fight)
+            </div>
+            <button id="start-btn">FIGHT</button>
+        </div>
+        
+        <div id="hud">
+            <div class="bar-container">
+                <div id="health-bar-fill"></div>
+            </div>
+            <div id="kill-counter">KILLS: <span id="count">0</span>/20</div>
+        </div>
+
+        <div id="boss-hud">
+            <div class="boss-name">THRAGG, THE WARLORD</div>
+            <div class="bar-container" style="width: 100%; border-color: var(--neon-red);">
+                <div id="boss-health-fill" style="width: 100%; height: 100%; background: var(--neon-red);"></div>
+            </div>
+        </div>
+
+        <div id="ability-bar">
+            <div class="ability-slot" id="slot-Q"><span>Q</span></div>
+            <div class="ability-slot" id="slot-W"><span>W</span></div>
+            <div class="ability-slot" id="slot-E"><span>E</span></div>
+            <div class="ability-slot" id="slot-R"><span>R</span></div>
+            <div class="ability-slot" id="slot-T"><span>T</span></div>
+            <div class="ability-slot" id="slot-Y"><span>Y</span></div>
+            <div class="ability-slot" id="slot-U"><span>U</span></div>
+            <div class="ability-slot" id="slot-I"><span>I</span></div>
+        </div>
+    </div>
+</div>
+
+<script>
+/** CONFIG & DATA **/
+const CONFIG = {
+    GRAVITY: 0.6,
+    FRICTION: 0.85,
+    GROUND_Y: window.innerHeight - 80,
+    PLAYER_SPEED: 8,
+    JUMP_FORCE: -16,
+};
+
+const ABILITIES = {
+    'Q': { name: 'Slap', dmg: 35, kb: 25, color: '#ff00ff' },
+    'W': { name: 'Spear', dmg: 50, kb: 10, color: '#ff0000' },
+    'E': { name: 'Knee', dmg: 40, kb: 15, lift: -20, color: '#00ffff' },
+    'R': { name: 'Slam', dmg: 45, area: 150, color: '#ffff00' },
+    'T': { name: 'Serious', dmg: 60, kb: 45, color: '#ffffff' },
+    'Y': { name: 'Spin', dmg: 55, multi: true, color: '#00ff41' },
+    'U': { name: 'Burst', dmg: 50, explode: true, color: '#ff4500' },
+    'I': { name: 'Dive', dmg: 75, aerial: true, color: '#4b0082' }
+};
+
+/** PARTICLE SYSTEM **/
+class Particle {
+    constructor(x, y, color) {
+        this.x = x; this.y = y;
+        this.vx = (Math.random() - 0.5) * 12;
+        this.vy = (Math.random() - 0.5) * 12;
+        this.life = 1.0;
+        this.color = color;
+    }
+    update() {
+        this.x += this.vx; this.y += this.vy;
+        this.vy += 0.3; this.life -= 0.02;
+    }
+}
+
+/** ENTITY CLASSES **/
+class Entity {
+    constructor(x, y, color) {
+        this.x = x; this.y = y;
+        this.vx = 0; this.vy = 0;
+        this.color = color;
+        this.hp = 100;
+        this.maxHp = 100;
+        this.isRagdoll = false;
+        this.dir = 1;
+        this.width = 30;
+        this.height = 70;
+    }
+
+    applyPhysics() {
+        this.x += this.vx;
+        this.y += this.vy;
+        if (this.y < CONFIG.GROUND_Y) {
+            this.vy += CONFIG.GRAVITY;
+        } else {
+            this.y = CONFIG.GROUND_Y;
+            this.vy = 0;
+            if (this.isRagdoll && Math.abs(this.vx) < 1) this.isRagdoll = false;
+        }
+        this.vx *= CONFIG.FRICTION;
+    }
+
+    draw(ctx) {
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        const headY = this.y - 60;
+        
+        // Head
+        ctx.beginPath();
+        ctx.arc(this.x, headY, 10, 0, Math.PI * 2);
+        // Body
+        ctx.moveTo(this.x, headY + 10);
+        ctx.lineTo(this.x, this.y - 20);
+        // Arms (simple animation based on movement)
+        const armWave = Math.sin(Date.now() * 0.01) * 10;
+        ctx.moveTo(this.x, headY + 15);
+        ctx.lineTo(this.x + (this.isRagdoll ? 20 : 15 * this.dir), headY + 25 + (this.isRagdoll ? armWave : 0));
+        // Legs
+        ctx.moveTo(this.x, this.y - 20);
+        ctx.lineTo(this.x - 10, this.y);
+        ctx.moveTo(this.x, this.y - 20);
+        ctx.lineTo(this.x + 10, this.y);
+        ctx.stroke();
+
+        if (this.isBoss) {
+            // Thragg Mustache & Spikes
+            ctx.fillStyle = "white";
+            ctx.fillRect(this.x - 5, headY + 2, 10, 3);
+            ctx.strokeStyle = "gold";
+            ctx.beginPath();
+            ctx.moveTo(this.x - 8, headY - 8); ctx.lineTo(this.x, headY - 15); ctx.lineTo(this.x + 8, headY - 8);
+            ctx.stroke();
+        }
+    }
+}
+
+/** GAME ENGINE **/
+class Game {
+    constructor() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+        
+        this.player = new Entity(200, CONFIG.GROUND_Y, CONFIG.PLAYER_SPEED);
+        this.player.color = "#00ff41";
+        this.enemies = [];
+        this.particles = [];
+        this.unlockedAbilities = [];
+        this.kills = 0;
+        this.isBossFight = false;
+        this.boss = null;
+        this.keys = {};
+        this.shake = 0;
+
+        window.addEventListener('keydown', e => this.keys[e.code] = true);
+        window.addEventListener('keyup', e => {
+            this.keys[e.code] = false;
+            if (['KeyQ','KeyW','KeyE','KeyR','KeyT','KeyY','KeyU','KeyI'].includes(e.code)) {
+                this.useAbility(e.code.replace('Key', ''));
+            }
+        });
+    }
+
+    init() {
+        this.player.hp = 100;
+        this.spawnEnemy();
+    }
+
+    spawnEnemy() {
+        if (this.isBossFight) return;
+        const x = Math.random() > 0.5 ? -50 : this.canvas.width + 50;
+        const e = new Entity(x, CONFIG.GROUND_Y, "#ff00ff");
+        e.hp = 30 + (this.kills * 2);
+        this.enemies.push(e);
+    }
+
+    useAbility(key) {
+        if (!this.unlockedAbilities.includes(key)) return;
+        const ab = ABILITIES[key];
+        this.shake = 15;
+        
+        const targets = this.isBossFight ? [this.boss, ...this.enemies] : this.enemies;
+        
+        targets.forEach(e => {
+            let dx = e.x - this.player.x;
+            if (Math.abs(dx) < (ab.area || 100)) {
+                e.hp -= ab.dmg;
+                e.isRagdoll = true;
+                e.vx = (ab.kb || 10) * this.player.dir;
+                if (ab.lift) e.vy = ab.lift;
+                this.spawnBlood(e.x, e.y - 40, ab.color);
+            }
+        });
+    }
+
+    spawnBlood(x, y, color) {
+        for(let i=0; i<15; i++) this.particles.push(new Particle(x, y, color || 'red'));
+    }
+
+    update() {
+        // Player Movement
+        if (this.keys['ArrowLeft']) { this.player.vx = -CONFIG.PLAYER_SPEED; this.player.dir = -1; }
+        if (this.keys['ArrowRight']) { this.player.vx = CONFIG.PLAYER_SPEED; this.player.dir = 1; }
+        if (this.keys['Space'] && this.player.y >= CONFIG.GROUND_Y) this.player.vy = CONFIG.JUMP_FORCE;
+
+        this.player.applyPhysics();
+
+        // Enemies
+        this.enemies.forEach((e, index) => {
+            if (!e.isRagdoll) {
+                let dx = this.player.x - e.x;
+                e.vx = Math.sign(dx) * (this.isBossFight ? 4 : 2);
+                if (Math.abs(dx) < 30 && Math.random() < 0.05) {
+                    this.player.hp -= 1;
+                    this.player.vx = Math.sign(this.player.x - e.x) * 5;
+                }
+            }
+            e.applyPhysics();
+            if (e.hp <= 0) {
+                this.kills++;
+                this.spawnBlood(e.x, e.y, '#ff00ff');
+                this.enemies.splice(index, 1);
+                this.checkProgression();
+            }
+        });
+
+        // Boss Logic
+        if (this.isBossFight && this.boss) {
+            this.boss.applyPhysics();
+            if (!this.boss.isRagdoll) {
+                this.boss.vx = Math.sign(this.player.x - this.boss.x) * 3;
+                if (this.boss.hp < 300 && Math.random() < 0.02) { // Phase 3 Minions
+                    this.spawnEnemy();
+                }
+            }
+            if (this.boss.hp <= 0) {
+                alert("THRAGG DEFEATED! YOU ARE THE OMNI-POTENT!");
+                location.reload();
+            }
+            document.getElementById('boss-health-fill').style.width = (this.boss.hp / this.boss.maxHp * 100) + "%";
+        }
+
+        // Particles
+        this.particles.forEach((p, i) => {
+            p.update();
+            if (p.life <= 0) this.particles.splice(i, 1);
+        });
+
+        // UI
+        document.getElementById('health-bar-fill').style.width = this.player.hp + "%";
+        document.getElementById('count').innerText = this.kills;
+        
+        if (this.player.hp <= 0) {
+            alert("VILTRUMITES NEVER QUIT. TRY AGAIN.");
+            location.reload();
+        }
+
+        if (this.enemies.length < 2 && !this.isBossFight) this.spawnEnemy();
+    }
+
+    checkProgression() {
+        const keys = Object.keys(ABILITIES);
+        if (this.kills % 2 === 0 && this.unlockedAbilities.length < keys.length) {
+            const next = keys[this.unlockedAbilities.length];
+            this.unlockedAbilities.push(next);
+            document.getElementById(`slot-${next}`).classList.add('unlocked');
+            document.getElementById(`slot-${next}`).innerHTML = `<span>${next}</span><br>${ABILITIES[next].name}`;
+        }
+
+        if (this.kills >= 20 && !this.isBossFight) {
+            this.startBossFight();
+        }
+    }
+
+    startBossFight() {
+        this.isBossFight = true;
+        this.enemies = [];
+        this.boss = new Entity(this.canvas.width - 100, CONFIG.GROUND_Y, "#ff0000");
+        this.boss.maxHp = 1000;
+        this.boss.hp = 1000;
+        this.boss.isBoss = true;
+        document.getElementById('boss-hud').style.display = 'block';
+    }
+
+    draw() {
+        this.ctx.fillStyle = '#050505';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Grid Background
+        this.ctx.strokeStyle = '#111';
+        for(let i=0; i<this.canvas.width; i+=50) {
+            this.ctx.beginPath(); this.ctx.moveTo(i, 0); this.ctx.lineTo(i, this.canvas.height); this.ctx.stroke();
+        }
+
+        // Ground
+        this.ctx.strokeStyle = varColor('--neon-pink');
+        this.ctx.beginPath();
+        this.ctx.moveTo(0, CONFIG.GROUND_Y);
+        this.ctx.lineTo(this.canvas.width, CONFIG.GROUND_Y);
+        this.ctx.stroke();
+
+        this.ctx.save();
+        if (this.shake > 0) {
+            this.ctx.translate(Math.random()*this.shake, Math.random()*this.shake);
+            this.shake *= 0.9;
+        }
+
+        this.player.draw(this.ctx);
+        this.enemies.forEach(e => e.draw(this.ctx));
+        if (this.boss) this.boss.draw(this.ctx);
+        
+        this.particles.forEach(p => {
+            this.ctx.globalAlpha = p.life;
+            this.ctx.fillStyle = p.color;
+            this.ctx.fillRect(p.x, p.y, 4, 4);
+        });
+        this.ctx.restore();
+    }
+}
+
+function varColor(name) { return getComputedStyle(document.documentElement).getPropertyValue(name); }
+
+const game = new Game();
+document.getElementById('start-btn').onclick = () => {
+    document.getElementById('menu').style.display = 'none';
+    document.getElementById('hud').style.display = 'block';
+    game.init();
+    function loop() { game.update(); game.draw(); requestAnimationFrame(loop); }
+    loop();
+};
+</script>
+</body>
+</html>
