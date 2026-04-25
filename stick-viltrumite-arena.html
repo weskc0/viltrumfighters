@@ -1,0 +1,1551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stick Viltrumite Arena</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 100%);
+            font-family: 'Courier New', monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        #container {
+            position: relative;
+            width: 1200px;
+            height: 600px;
+            background: #0f0f1e;
+            border: 4px solid #ff006e;
+            box-shadow: 0 0 40px rgba(255, 0, 110, 0.4), inset 0 0 60px rgba(255, 0, 110, 0.1);
+        }
+
+        canvas {
+            display: block;
+            background: #0f0f1e;
+        }
+
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .stat-box {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #ff006e;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            line-height: 1.6;
+            backdrop-filter: blur(5px);
+        }
+
+        #player-stats {
+            top: 15px;
+            left: 15px;
+            min-width: 200px;
+        }
+
+        #enemy-stats {
+            top: 15px;
+            right: 15px;
+            min-width: 200px;
+            text-align: right;
+        }
+
+        #boss-stats {
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            min-width: 300px;
+            text-align: center;
+            border-color: #ff4444;
+            background: rgba(255, 0, 0, 0.15);
+        }
+
+        #wave-info {
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            color: #00ff88;
+            font-size: 14px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #ff006e;
+            padding: 8px 20px;
+            border-radius: 4px;
+        }
+
+        #kills-display {
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #00ff88;
+            text-shadow: 0 0 10px #00ff88;
+        }
+
+        .ability-slot {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            margin: 4px;
+            border: 2px solid #ff006e;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 4px;
+            text-align: center;
+            line-height: 50px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 10px;
+        }
+
+        .ability-slot.available {
+            background: rgba(0, 255, 136, 0.3);
+            border-color: #00ff88;
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+        }
+
+        .ability-slot.cooldown {
+            background: rgba(255, 0, 110, 0.2);
+            border-color: #ff006e;
+            opacity: 0.6;
+        }
+
+        #abilities {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            pointer-events: auto;
+        }
+
+        #instructions {
+            position: absolute;
+            bottom: 80px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #ff006e;
+            padding: 12px;
+            font-size: 11px;
+            line-height: 1.8;
+            max-width: 250px;
+            border-radius: 4px;
+        }
+
+        #overlay-panel {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            border: 3px solid #ff006e;
+            padding: 40px;
+            text-align: center;
+            border-radius: 8px;
+            display: none;
+            z-index: 1000;
+            pointer-events: auto;
+            max-width: 600px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        #overlay-panel h1 {
+            color: #00ff88;
+            font-size: 32px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px #00ff88;
+        }
+
+        #overlay-panel h2 {
+            color: #ff006e;
+            font-size: 20px;
+            margin: 15px 0 10px 0;
+        }
+
+        #overlay-panel p {
+            color: #fff;
+            font-size: 14px;
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+
+        #overlay-panel button {
+            margin-top: 15px;
+            padding: 12px 30px;
+            background: #ff006e;
+            color: #000;
+            border: none;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-right: 10px;
+        }
+
+        #overlay-panel button:hover {
+            background: #00ff88;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.6);
+        }
+
+        .stat-label {
+            color: #ff006e;
+            font-weight: bold;
+        }
+
+        .stat-value {
+            color: #00ff88;
+        }
+
+        .health-bar {
+            background: #1a1a2e;
+            border: 1px solid #ff006e;
+            width: 120px;
+            height: 8px;
+            margin-top: 4px;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff88, #00cc6a);
+            width: 100%;
+            transition: width 0.2s;
+        }
+
+        .boss-health-bar {
+            background: #1a1a2e;
+            border: 2px solid #ff4444;
+            width: 280px;
+            height: 12px;
+            margin-top: 8px;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .boss-health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff0000, #ff6666);
+            width: 100%;
+            transition: width 0.3s;
+        }
+
+        @keyframes screenShake {
+            0%, 100% { transform: translate(0, 0); }
+            25% { transform: translate(-3px, 3px); }
+            50% { transform: translate(3px, -3px); }
+            75% { transform: translate(-3px, -3px); }
+        }
+
+        body.shake {
+            animation: screenShake 0.15s;
+        }
+
+        .ability-table {
+            text-align: left;
+            margin: 15px auto;
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        .ability-table td {
+            border: 1px solid #ff006e;
+            padding: 8px;
+            font-size: 11px;
+            color: #ddd;
+        }
+
+        .ability-table tr:first-child td {
+            background: rgba(255, 0, 110, 0.2);
+            color: #00ff88;
+            font-weight: bold;
+        }
+
+        .ability-table tr:hover td {
+            background: rgba(255, 0, 110, 0.1);
+        }
+
+        #menu-buttons {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 999;
+            pointer-events: auto;
+        }
+
+        .menu-btn {
+            display: block;
+            width: 200px;
+            padding: 15px 30px;
+            margin: 15px auto;
+            background: rgba(255, 0, 110, 0.2);
+            border: 2px solid #ff006e;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .menu-btn:hover:not(:disabled) {
+            background: rgba(0, 255, 136, 0.3);
+            border-color: #00ff88;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.6);
+            transform: scale(1.05);
+        }
+
+        .menu-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            border-color: #666;
+        }
+
+        .menu-btn-icon {
+            display: inline-block;
+            margin-right: 10px;
+            font-size: 20px;
+        }
+
+        @keyframes menuShake {
+            0%, 100% { transform: translate(0, 0); }
+            25% { transform: translate(-1px, 1px); }
+            50% { transform: translate(1px, -1px); }
+        }
+
+        #menu-title {
+            font-size: 48px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 20px rgba(255, 0, 110, 0.8), 0 0 40px rgba(255, 0, 110, 0.4);
+            margin-bottom: 30px;
+            animation: menuShake 2s infinite;
+        }
+
+        .leaderboard {
+            text-align: left;
+            margin: 15px auto;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid #ff006e;
+            padding: 10px;
+            border-radius: 4px;
+            max-width: 300px;
+        }
+
+        .leaderboard-entry {
+            padding: 5px;
+            border-bottom: 1px solid #333;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .leaderboard-entry:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <canvas id="game-canvas" width="1200" height="600"></canvas>
+        <div id="menu-buttons" style="display: none;">
+            <div id="menu-title">⚔ STICK VILTRUMITE ARENA ⚔</div>
+            <button class="menu-btn" onclick="startCampaign()">
+                <span class="menu-btn-icon">👊</span>FIGHT
+            </button>
+            <button class="menu-btn" id="endless-btn" onclick="startEndless()" disabled>
+                <span class="menu-btn-icon">∞</span>ENDLESS
+            </button>
+            <button class="menu-btn" onclick="showAbilities()">
+                <span class="menu-btn-icon">⚡</span>ABILITIES
+            </button>
+            <button class="menu-btn" onclick="window.close()">
+                <span class="menu-btn-icon">✕</span>QUIT
+            </button>
+        </div>
+        <div id="ui">
+            <div id="player-stats" class="stat-box" style="display: none;">
+                <div><span class="stat-label">PLAYER</span></div>
+                <div class="health-bar">
+                    <div class="health-fill" id="player-health"></div>
+                </div>
+                <div><span class="stat-value" id="player-hp">100/100</span></div>
+                <div style="margin-top: 8px; color: #888; font-size: 11px;">
+                    <div>DMG: <span id="player-dmg">1-2</span></div>
+                    <div>LVL: <span id="player-level">1</span></div>
+                </div>
+            </div>
+
+            <div id="enemy-stats" class="stat-box" style="display: none;">
+                <div><span class="stat-label">ENEMY</span></div>
+                <div class="health-bar">
+                    <div class="health-fill" id="enemy-health"></div>
+                </div>
+                <div><span class="stat-value" id="enemy-hp">0/0</span></div>
+            </div>
+
+            <div id="boss-stats" class="stat-box" style="display: none;">
+                <div style="color: #ff4444; font-weight: bold; font-size: 14px;">⚠ THRAGG - VILTRUMITE WARLORD ⚠</div>
+                <div class="boss-health-bar">
+                    <div class="boss-health-fill" id="boss-health"></div>
+                </div>
+                <div><span class="stat-value" id="boss-hp">0/0</span></div>
+            </div>
+
+            <div id="wave-info" style="display: none;">
+                <div style="color: #ff006e; font-size: 12px;">ENEMIES DEFEATED</div>
+                <div id="kills-display" style="position: relative; transform: none; top: auto; left: auto; font-size: 28px; margin-top: 4px;">0</div>
+            </div>
+
+            <div id="wave-endless-info" class="stat-box" style="display: none; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(255, 0, 110, 0.1); border-color: #ff006e;">
+                <div style="color: #ff006e; font-weight: bold;">WAVE <span id="wave-number">1</span></div>
+                <div style="color: #00ff88;">Score: <span id="endless-score">0</span></div>
+            </div>
+
+            <div id="abilities" style="display: none;">
+                <div style="color: #888; font-size: 11px; margin-bottom: 8px; text-align: center;">ABILITIES (1-8)</div>
+                <div id="ability-slots"></div>
+            </div>
+
+            <div id="instructions" style="display: none;">
+                <div style="color: #00ff88; font-weight: bold; margin-bottom: 8px;">CONTROLS</div>
+                <div>WASD: Move</div>
+                <div>SPACE: Jump</div>
+                <div>LEFT CLICK: Punch</div>
+                <div>1-8: Abilities</div>
+                <div style="margin-top: 8px; color: #ff006e;">Kill enemies to unlock abilities!</div>
+            </div>
+
+            <div id="overlay-panel">
+                <div id="overlay-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== GAME CONFIG ====================
+        const config = {
+            CANVAS_WIDTH: 1200,
+            CANVAS_HEIGHT: 600,
+            PLAYER_START_HP: 100,
+            PLAYER_BASE_DMG: 1,
+            PUNCH_RANGE: 60,
+            PUNCH_COOLDOWN: 200,
+            ENEMY_SPAWN_DISTANCE: 80,
+            WIN_KILL_COUNT: 20,
+            FRICTION: 0.92,
+            GRAVITY: 0.6,
+            SPAWN_CHECK_INTERVAL: 60,
+            MAX_ENEMIES: 3,
+            ABILITY_MAX_SLOTS: 8,
+        };
+
+        // ==================== GAME STATE ====================
+        let gameState = {
+            mode: 'menu', // menu, campaign, boss, endless
+            running: true,
+            kills: 0,
+            endless_wave: 1,
+            endless_score: 0,
+            endless_enemies_spawned: 0,
+            abilities: [],
+            unlockedAbilities: [],
+            currentEnemies: [],
+            bossMinions: [],
+            particles: [],
+            camera: { shake: 0 },
+            bossDefeated: localStorage.getItem('bossDefeated') === 'true',
+        };
+
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const keys = {};
+
+        // ==================== PLAYER CLASS ====================
+        class Player {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.width = 30;
+                this.height = 60;
+                this.hp = config.PLAYER_START_HP;
+                this.maxHp = config.PLAYER_START_HP;
+                this.dmg = config.PLAYER_BASE_DMG;
+                this.isJumping = false;
+                this.onGround = true;
+                this.lastPunchTime = 0;
+                this.punchCooldown = config.PUNCH_COOLDOWN;
+                this.abilities = [];
+                this.abilityCooldowns = {};
+            }
+
+            update() {
+                if (this.vy < 0) this.onGround = false;
+                if (!this.onGround) {
+                    this.vy += config.GRAVITY;
+                }
+
+                if (keys['w'] || keys['W']) this.vy = Math.max(this.vy - 1, -15);
+                if (keys['s'] || keys['S']) this.vy = Math.min(this.vy + 1, 15);
+                if (keys['a'] || keys['A']) this.vx = Math.max(this.vx - 2, -12);
+                if (keys['d'] || keys['D']) this.vx = Math.min(this.vx + 2, 12);
+
+                if (keys[' '] && this.onGround) {
+                    this.vy = -15;
+                    this.onGround = false;
+                    keys[' '] = false;
+                }
+
+                this.vx *= config.FRICTION;
+                this.vy *= 0.99;
+                this.x += this.vx;
+                this.y += this.vy;
+
+                if (this.y + this.height / 2 >= config.CANVAS_HEIGHT) {
+                    this.y = config.CANVAS_HEIGHT - this.height / 2;
+                    this.vy = 0;
+                    this.onGround = true;
+                }
+
+                if (this.x - this.width / 2 < 0) this.x = this.width / 2;
+                if (this.x + this.width / 2 > config.CANVAS_WIDTH) this.x = config.CANVAS_WIDTH - this.width / 2;
+
+                for (let ability in this.abilityCooldowns) {
+                    this.abilityCooldowns[ability] = Math.max(0, this.abilityCooldowns[ability] - 1);
+                }
+
+                this.hp = Math.max(0, Math.min(this.maxHp, this.hp));
+            }
+
+            punch(targetX, targetY) {
+                if (Date.now() - this.lastPunchTime < this.punchCooldown) return null;
+                this.lastPunchTime = Date.now();
+
+                const dist = Math.hypot(targetX - this.x, targetY - this.y);
+                if (dist < config.PUNCH_RANGE) {
+                    const dmg = Math.floor(this.dmg + Math.random() * this.dmg);
+                    return { hit: true, damage: dmg };
+                }
+                return { hit: false };
+            }
+
+            addAbility(abilityName) {
+                if (this.abilities.length < config.ABILITY_MAX_SLOTS) {
+                    this.abilities.push(abilityName);
+                    this.abilityCooldowns[abilityName] = 0;
+                    if (!gameState.unlockedAbilities.includes(abilityName)) {
+                        gameState.unlockedAbilities.push(abilityName);
+                    }
+                    return true;
+                }
+                return false;
+            }
+
+            useAbility(index) {
+                if (index >= this.abilities.length) return null;
+                const abilityName = this.abilities[index];
+                if (this.abilityCooldowns[abilityName] > 0) return null;
+                
+                const ability = ABILITY_SPECS[abilityName];
+                this.abilityCooldowns[abilityName] = ability.cooldown;
+                return ability;
+            }
+
+            draw(isPlayer = true) {
+                ctx.strokeStyle = isPlayer ? '#00ff88' : '#ff006e';
+                ctx.lineWidth = isPlayer ? 3 : 2.5;
+                ctx.lineCap = 'round';
+
+                ctx.beginPath();
+                ctx.arc(this.x, this.y - 20, 10, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y - 10);
+                ctx.lineTo(this.x, this.y + 10);
+                ctx.stroke();
+
+                const legOffset = Math.sin(Date.now() * 0.01) * 3;
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + 10);
+                ctx.lineTo(this.x - 8 + legOffset, this.y + 25);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + 10);
+                ctx.lineTo(this.x + 8 - legOffset, this.y + 25);
+                ctx.stroke();
+
+                const armOffset = Math.sin(Date.now() * 0.008) * 5;
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y - 5);
+                ctx.lineTo(this.x - 15 + armOffset, this.y + 5);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y - 5);
+                ctx.lineTo(this.x + 15 - armOffset, this.y + 5);
+                ctx.stroke();
+            }
+        }
+
+        // ==================== ENEMY CLASS ====================
+        class Enemy {
+            constructor(x, y, elite = false) {
+                this.x = x;
+                this.y = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.width = 25;
+                this.height = 55;
+                this.elite = elite;
+                this.hp = elite ? 25 : 15;
+                this.maxHp = this.hp;
+                this.dmg = elite ? Math.floor(1 + Math.random() * 2) : Math.floor(0.5 + Math.random() * 1);
+                this.attackCooldown = 0;
+                this.onGround = false;
+                this.speed = elite ? 3 : 2.5;
+            }
+
+            update(playerPos) {
+                this.vy += config.GRAVITY;
+                this.vy *= 0.99;
+                this.vx *= config.FRICTION;
+
+                const dx = playerPos.x - this.x;
+                const dy = playerPos.y - this.y;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist > 50) {
+                    this.vx += (dx / dist) * this.speed * 0.1;
+                    this.vx = Math.max(-8, Math.min(8, this.vx));
+                }
+
+                if (playerPos.y < this.y - 30 && this.onGround && dist > 80) {
+                    this.vy = -12;
+                    this.onGround = false;
+                }
+
+                if (this.attackCooldown > 0) this.attackCooldown--;
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                if (this.y + this.height / 2 >= config.CANVAS_HEIGHT) {
+                    this.y = config.CANVAS_HEIGHT - this.height / 2;
+                    this.vy = 0;
+                    this.onGround = true;
+                } else {
+                    this.onGround = false;
+                }
+
+                if (this.x - this.width / 2 < 0) {
+                    this.x = this.width / 2;
+                    this.vx = 3;
+                }
+                if (this.x + this.width / 2 > config.CANVAS_WIDTH) {
+                    this.x = config.CANVAS_WIDTH - this.width / 2;
+                    this.vx = -3;
+                }
+
+                this.hp = Math.max(0, this.hp);
+            }
+
+            attack(targetPos) {
+                if (this.attackCooldown <= 0) {
+                    const dist = Math.hypot(targetPos.x - this.x, targetPos.y - this.y);
+                    if (dist < config.PUNCH_RANGE + 20) {
+                        this.attackCooldown = 60;
+                        return { hit: true, damage: this.dmg };
+                    }
+                }
+                return { hit: false };
+            }
+
+            draw() {
+                ctx.strokeStyle = this.elite ? '#ff6666' : '#ff006e';
+                ctx.lineWidth = this.elite ? 3.5 : 2.5;
+                ctx.lineCap = 'round';
+
+                ctx.beginPath();
+                ctx.arc(this.x, this.y - 20, 8, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y - 12);
+                ctx.lineTo(this.x, this.y + 8);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + 8);
+                ctx.lineTo(this.x - 6, this.y + 20);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + 8);
+                ctx.lineTo(this.x + 6, this.y + 20);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y - 5);
+                ctx.lineTo(this.x - 12, this.y + 3);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y - 5);
+                ctx.lineTo(this.x + 12, this.y + 3);
+                ctx.stroke();
+
+                if (this.elite) {
+                    ctx.strokeStyle = '#ff6666';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y - 20, 14, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        // ==================== THRAGG BOSS CLASS ====================
+        class Thragg {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.width = 60;
+                this.height = 120;
+                this.hp = 1000;
+                this.maxHp = 1000;
+                this.dmg = 8;
+                this.attackCooldown = 0;
+                this.onGround = true;
+                this.phase = 1;
+                this.phaseTimer = 0;
+                this.auraColor = '#ff0000';
+                this.minion_spawn_cooldown = 0;
+                this.speed = 2;
+                this.abilities = ['Ragdoll Slap', 'Viltrumite Spear Hand', 'Omni Knee Strike', 'Belly Slam'];
+                this.ability_cooldowns = {};
+                this.abilities.forEach(a => this.ability_cooldowns[a] = 0);
+            }
+
+            update(playerPos) {
+                // Gravity
+                this.vy += config.GRAVITY * 0.8;
+                this.vy *= 0.98;
+                this.vx *= config.FRICTION;
+
+                // Phase management
+                const hpPercent = this.hp / this.maxHp;
+                if (hpPercent < 0.3) {
+                    this.phase = 3;
+                    this.speed = 4;
+                } else if (hpPercent < 0.6) {
+                    this.phase = 2;
+                    this.speed = 3.5;
+                } else {
+                    this.phase = 1;
+                    this.speed = 2;
+                }
+
+                // Aggressive chase
+                const dx = playerPos.x - this.x;
+                const dy = playerPos.y - this.y;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist > 100) {
+                    this.vx += (dx / dist) * this.speed * 0.15;
+                    this.vx = Math.max(-15, Math.min(15, this.vx));
+
+                    if (playerPos.y < this.y - 50 && this.onGround && dist > 150 && Math.random() < 0.02) {
+                        this.vy = -18;
+                        this.onGround = false;
+                    }
+                } else if (dist < 200 && this.onGround && this.phase >= 2 && Math.random() < 0.01) {
+                    this.vy = -16;
+                    this.onGround = false;
+                }
+
+                // Phase 3: minion spawning
+                if (this.phase === 3) {
+                    this.minion_spawn_cooldown--;
+                    if (this.minion_spawn_cooldown <= 0) {
+                        spawnBossMinion();
+                        this.minion_spawn_cooldown = 120;
+                    }
+                }
+
+                // Ability cooldowns
+                for (let ability in this.ability_cooldowns) {
+                    this.ability_cooldowns[ability] = Math.max(0, this.ability_cooldowns[ability] - 1);
+                }
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                if (this.y + this.height / 2 >= config.CANVAS_HEIGHT) {
+                    this.y = config.CANVAS_HEIGHT - this.height / 2;
+                    this.vy = 0;
+                    this.onGround = true;
+                }
+
+                if (this.x - this.width / 2 < 0) {
+                    this.x = this.width / 2;
+                    this.vx = 5;
+                }
+                if (this.x + this.width / 2 > config.CANVAS_WIDTH) {
+                    this.x = config.CANVAS_WIDTH - this.width / 2;
+                    this.vx = -5;
+                }
+
+                this.hp = Math.max(0, this.hp);
+            }
+
+            attack(targetPos) {
+                if (this.attackCooldown <= 0) {
+                    const dist = Math.hypot(targetPos.x - this.x, targetPos.y - this.y);
+                    if (dist < config.PUNCH_RANGE + 50) {
+                        this.attackCooldown = 40;
+                        let dmg = this.dmg;
+                        if (this.phase === 2) dmg = Math.floor(dmg * 2);
+                        return { hit: true, damage: dmg };
+                    }
+                }
+                return { hit: false };
+            }
+
+            draw() {
+                // Aura based on phase
+                if (this.phase === 2) {
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y - 30, this.width + 20, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.strokeStyle = '#ff0000';
+                ctx.lineWidth = 4;
+                ctx.lineCap = 'round';
+
+                // Head with Viltrumite mustache
+                ctx.beginPath();
+                ctx.arc(this.x, this.y - 50, 16, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Mustache
+                ctx.beginPath();
+                ctx.moveTo(this.x - 8, this.y - 50);
+                ctx.lineTo(this.x - 20, this.y - 55);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(this.x + 8, this.y - 50);
+                ctx.lineTo(this.x + 20, this.y - 55);
+                ctx.stroke();
+
+                // Torso
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y - 34);
+                ctx.lineTo(this.x, this.y + 10);
+                ctx.stroke();
+
+                // Legs
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + 10);
+                ctx.lineTo(this.x - 12, this.y + 50);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + 10);
+                ctx.lineTo(this.x + 12, this.y + 50);
+                ctx.stroke();
+
+                // Arms
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y - 20);
+                ctx.lineTo(this.x - 28, this.y + 5);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y - 20);
+                ctx.lineTo(this.x + 28, this.y + 5);
+                ctx.stroke();
+
+                // Crown-like top
+                ctx.fillStyle = '#ff4444';
+                for (let i = 0; i < 3; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(this.x - 12 + i * 12, this.y - 66);
+                    ctx.lineTo(this.x - 8 + i * 12, this.y - 75);
+                    ctx.lineTo(this.x - 4 + i * 12, this.y - 66);
+                    ctx.fill();
+                }
+            }
+        }
+
+        // ==================== PARTICLE SYSTEM ====================
+        class Particle {
+            constructor(x, y, vx, vy, color, life) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.color = color;
+                this.life = life;
+                this.maxLife = life;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += 0.3;
+                this.life--;
+            }
+
+            draw() {
+                const alpha = this.life / this.maxLife;
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        // ==================== ABILITY SPECS ====================
+        const ABILITY_SPECS = {
+            'Ragdoll Slap': {
+                name: 'Ragdoll Slap',
+                damage: 35,
+                cooldown: 600,
+                range: 120,
+                effect: (target, player) => {
+                    if (!target) return;
+                    const dx = target.x - player.x;
+                    const dy = target.y - player.y;
+                    const dist = Math.hypot(dx, dy);
+                    if (dist < 120) {
+                        target.vx = (dx / dist) * 25;
+                        target.vy = -8;
+                        screenShake(10);
+                        createExplosion(target.x, target.y, '#ff006e');
+                    }
+                }
+            },
+            'Viltrumite Spear Hand': {
+                name: 'Viltrumite Spear Hand',
+                damage: 50,
+                cooldown: 800,
+                range: 100,
+                effect: (target, player) => {
+                    if (!target) return;
+                    const dx = target.x - player.x;
+                    const dy = target.y - player.y;
+                    const dist = Math.hypot(dx, dy);
+                    if (dist < 100) {
+                        target.vx = (dx / dist) * 20;
+                        target.hp -= 20;
+                        screenShake(15);
+                        createExplosion(target.x, target.y, '#ff4444');
+                    }
+                }
+            },
+            'Omni Knee Strike': {
+                name: 'Omni Knee Strike',
+                damage: 40,
+                cooldown: 700,
+                range: 90,
+                effect: (target, player) => {
+                    if (!target) return;
+                    const dist = Math.hypot(target.x - player.x, target.y - player.y);
+                    if (dist < 90) {
+                        target.vy = -20;
+                        target.vx += (target.x - player.x) * 0.1;
+                        screenShake(8);
+                        createExplosion(target.x, target.y, '#00ff88');
+                    }
+                }
+            },
+            'Belly Slam': {
+                name: 'Belly Slam',
+                damage: 45,
+                cooldown: 900,
+                range: 150,
+                effect: (target, player) => {
+                    if (!target) return;
+                    const dist = Math.hypot(target.x - player.x, target.y - player.y);
+                    if (dist < 150) {
+                        const dx = target.x - player.x;
+                        const dy = target.y - player.y;
+                        target.vx = (dx / dist) * 30;
+                        target.vy = 15;
+                        screenShake(20);
+                        createExplosion(target.x, target.y, '#ff8800');
+                    }
+                }
+            },
+            'Serious Punch': {
+                name: 'Serious Punch',
+                damage: 60,
+                cooldown: 1000,
+                range: 110,
+                effect: (target, player) => {
+                    if (!target) return;
+                    const dist = Math.hypot(target.x - player.x, target.y - player.y);
+                    if (dist < 110) {
+                        target.hp -= 50;
+                        const dx = target.x - player.x;
+                        const dy = target.y - player.y;
+                        target.vx = (dx / dist) * 35;
+                        target.vy = -5;
+                        screenShake(25);
+                        createExplosion(target.x, target.y, '#ffff00');
+                    }
+                }
+            },
+            'Lethal Whirlwind': {
+                name: 'Lethal Whirlwind',
+                damage: 55,
+                cooldown: 850,
+                range: 130,
+                effect: (target, player) => {
+                    if (!target) return;
+                    const dist = Math.hypot(target.x - player.x, target.y - player.y);
+                    if (dist < 130) {
+                        for (let i = 0; i < 3; i++) {
+                            target.hp -= 15;
+                        }
+                        target.vx = (target.x - player.x) * 0.3;
+                        target.vy = -15;
+                        screenShake(12);
+                        createExplosion(target.x, target.y, '#ff00ff');
+                    }
+                }
+            },
+            'Ignition Burst': {
+                name: 'Ignition Burst',
+                damage: 50,
+                cooldown: 750,
+                range: 100,
+                effect: (target, player) => {
+                    if (!target) return;
+                    const dist = Math.hypot(target.x - player.x, target.y - player.y);
+                    if (dist < 100) {
+                        target.hp -= 25;
+                        const dx = target.x - player.x;
+                        const dy = target.y - player.y;
+                        target.vx = (dx / dist) * 22;
+                        target.vy = -8;
+                        screenShake(10);
+                        createExplosion(target.x, target.y, '#ff6600');
+                    }
+                }
+            },
+            'Doom Dive': {
+                name: 'Doom Dive',
+                damage: 70,
+                cooldown: 1200,
+                range: 150,
+                effect: (target, player) => {
+                    if (!target) return;
+                    const dist = Math.hypot(target.x - player.x, target.y - player.y);
+                    if (dist < 150) {
+                        target.hp -= 40;
+                        target.vx = (target.x - player.x) * 0.2;
+                        target.vy = 25;
+                        screenShake(30);
+                        createExplosion(target.x, target.y, '#0088ff');
+                    }
+                }
+            }
+        };
+
+        let player;
+        let currentBoss = null;
+        let spawnTimer = 0;
+
+        // ==================== HELPER FUNCTIONS ====================
+        function screenShake(intensity) {
+            const container = document.getElementById('container');
+            container.style.animation = 'none';
+            setTimeout(() => {
+                for (let i = 0; i < intensity; i++) {
+                    setTimeout(() => {
+                        const x = (Math.random() - 0.5) * 8;
+                        const y = (Math.random() - 0.5) * 8;
+                        container.style.transform = `translate(${x}px, ${y}px)`;
+                    }, i * 15);
+                }
+                setTimeout(() => {
+                    container.style.transform = 'translate(0, 0)';
+                }, intensity * 15);
+            }, 10);
+        }
+
+        function createExplosion(x, y, color) {
+            for (let i = 0; i < 12; i++) {
+                const angle = (Math.PI * 2 * i) / 12;
+                const vx = Math.cos(angle) * 8;
+                const vy = Math.sin(angle) * 8;
+                gameState.particles.push(new Particle(x, y, vx, vy, color, 30));
+            }
+        }
+
+        function spawnEnemy() {
+            const side = Math.random();
+            let x, y;
+            if (side < 0.5) {
+                x = Math.random() < 0.5 ? -20 : config.CANVAS_WIDTH + 20;
+                y = Math.random() * (config.CANVAS_HEIGHT - 100) + 50;
+            } else {
+                x = Math.random() * config.CANVAS_WIDTH;
+                y = -20;
+            }
+            const elite = gameState.mode === 'endless' && Math.random() < 0.15;
+            gameState.currentEnemies.push(new Enemy(x, y, elite));
+        }
+
+        function spawnBossMinion() {
+            const side = Math.random();
+            let x, y;
+            if (side < 0.5) {
+                x = Math.random() < 0.5 ? -20 : config.CANVAS_WIDTH + 20;
+                y = Math.random() * (config.CANVAS_HEIGHT - 100) + 50;
+            } else {
+                x = Math.random() * config.CANVAS_WIDTH;
+                y = -20;
+            }
+            gameState.bossMinions.push(new Enemy(x, y, true));
+        }
+
+        function updateUI() {
+            const playerHealthFill = document.getElementById('player-health');
+            playerHealthFill.style.width = (player.hp / player.maxHp) * 100 + '%';
+            document.getElementById('player-hp').textContent = `${Math.ceil(player.hp)}/${player.maxHp}`;
+            document.getElementById('player-level').textContent = gameState.kills;
+
+            if (gameState.currentEnemies.length > 0) {
+                const enemy = gameState.currentEnemies[0];
+                document.getElementById('enemy-health').style.width = (enemy.hp / enemy.maxHp) * 100 + '%';
+                document.getElementById('enemy-hp').textContent = `${Math.ceil(enemy.hp)}/${enemy.maxHp}`;
+            }
+
+            document.getElementById('kills-display').textContent = gameState.kills;
+
+            if (currentBoss) {
+                document.getElementById('boss-health').style.width = (currentBoss.hp / currentBoss.maxHp) * 100 + '%';
+                document.getElementById('boss-hp').textContent = `${Math.ceil(currentBoss.hp)}/${currentBoss.maxHp}`;
+            }
+
+            if (gameState.mode === 'endless') {
+                document.getElementById('endless-score').textContent = gameState.endless_score;
+                document.getElementById('wave-number').textContent = gameState.endless_wave;
+            }
+
+            const abilitySlots = document.getElementById('ability-slots');
+            abilitySlots.innerHTML = '';
+            for (let i = 0; i < 8; i++) {
+                const slot = document.createElement('div');
+                slot.className = 'ability-slot';
+                if (i < player.abilities.length) {
+                    const abilityName = player.abilities[i];
+                    const ability = ABILITY_SPECS[abilityName];
+                    slot.textContent = (i + 1);
+                    if (player.abilityCooldowns[abilityName] <= 0) {
+                        slot.classList.add('available');
+                    } else {
+                        slot.classList.add('cooldown');
+                    }
+                    slot.title = abilityName;
+                } else {
+                    slot.textContent = '?';
+                    slot.style.opacity = '0.3';
+                }
+                abilitySlots.appendChild(slot);
+            }
+        }
+
+        function showMenu() {
+            gameState.mode = 'menu';
+            document.getElementById('menu-buttons').style.display = 'block';
+            document.getElementById('player-stats').style.display = 'none';
+            document.getElementById('enemy-stats').style.display = 'none';
+            document.getElementById('boss-stats').style.display = 'none';
+            document.getElementById('wave-info').style.display = 'none';
+            document.getElementById('wave-endless-info').style.display = 'none';
+            document.getElementById('abilities').style.display = 'none';
+            document.getElementById('instructions').style.display = 'none';
+
+            if (gameState.bossDefeated) {
+                document.getElementById('endless-btn').disabled = false;
+            }
+
+            drawMenu();
+        }
+
+        function startCampaign() {
+            gameState.mode = 'campaign';
+            gameState.kills = 0;
+            gameState.abilities = [];
+            gameState.unlockedAbilities = [];
+            gameState.currentEnemies = [];
+            gameState.particles = [];
+            currentBoss = null;
+            player = new Player(config.CANVAS_WIDTH / 2, config.CANVAS_HEIGHT - 100);
+            spawnTimer = 0;
+
+            document.getElementById('menu-buttons').style.display = 'none';
+            document.getElementById('player-stats').style.display = 'block';
+            document.getElementById('enemy-stats').style.display = 'block';
+            document.getElementById('wave-info').style.display = 'block';
+            document.getElementById('abilities').style.display = 'block';
+            document.getElementById('instructions').style.display = 'block';
+
+            gameLoop();
+        }
+
+        function startEndless() {
+            gameState.mode = 'endless';
+            gameState.kills = 0;
+            gameState.endless_wave = 1;
+            gameState.endless_score = 0;
+            gameState.endless_enemies_spawned = 0;
+            gameState.abilities = gameState.unlockedAbilities.slice();
+            gameState.currentEnemies = [];
+            gameState.particles = [];
+            gameState.bossMinions = [];
+            currentBoss = null;
+            player = new Player(config.CANVAS_WIDTH / 2, config.CANVAS_HEIGHT - 100);
+            player.abilities = gameState.unlockedAbilities.slice();
+            gameState.unlockedAbilities.forEach(a => player.abilityCooldowns[a] = 0);
+            spawnTimer = 0;
+
+            document.getElementById('menu-buttons').style.display = 'none';
+            document.getElementById('player-stats').style.display = 'block';
+            document.getElementById('enemy-stats').style.display = 'block';
+            document.getElementById('wave-endless-info').style.display = 'block';
+            document.getElementById('abilities').style.display = 'block';
+            document.getElementById('instructions').style.display = 'block';
+
+            gameLoop();
+        }
+
+        function showAbilities() {
+            const content = document.getElementById('overlay-content');
+            let html = '<h1>UNLOCKED ABILITIES</h1>';
+
+            if (gameState.unlockedAbilities.length === 0) {
+                html += '<p>Start the campaign and defeat enemies to unlock abilities!</p>';
+            } else {
+                html += '<table class="ability-table"><tr><td>Ability</td><td>DMG</td><td>Cooldown</td></tr>';
+                gameState.unlockedAbilities.forEach(name => {
+                    const ability = ABILITY_SPECS[name];
+                    html += `<tr><td>${name}</td><td>${ability.damage}</td><td>${(ability.cooldown / 60).toFixed(1)}s</td></tr>`;
+                });
+                html += '</table>';
+            }
+
+            html += '<button onclick="showMenu(); document.getElementById(\'overlay-panel\').style.display = \'none\';">BACK</button>';
+            content.innerHTML = html;
+            document.getElementById('overlay-panel').style.display = 'block';
+        }
+
+        function startBossFight() {
+            gameState.mode = 'boss';
+            currentBoss = new Thragg(config.CANVAS_WIDTH / 2, 150);
+            gameState.bossMinions = [];
+            document.getElementById('boss-stats').style.display = 'block';
+            document.getElementById('enemy-stats').style.display = 'none';
+            document.getElementById('wave-info').style.display = 'none';
+        }
+
+        function endGame(victory, endless = false) {
+            gameState.running = false;
+            const content = document.getElementById('overlay-content');
+            
+            if (victory) {
+                if (gameState.mode === 'boss') {
+                    localStorage.setItem('bossDefeated', 'true');
+                    gameState.bossDefeated = true;
+                    html = '<h1>⚔ VILTRUMITE EMPIRE CONQUERED ⚔</h1>';
+                    html += '<p style="color: #00ff88; font-size: 16px;">Thragg has been defeated!</p>';
+                    html += '<p>ENDLESS MODE UNLOCKED</p>';
+                } else if (endless) {
+                    html = '<h1>WAVE COMPLETE</h1>';
+                    html += `<p>WAVE: ${gameState.endless_wave}</p>`;
+                    html += `<p>SCORE: ${gameState.endless_score}</p>`;
+                    html += '<button onclick="startEndless()">NEXT WAVE</button>';
+                    html += '<button onclick="showMenu(); document.getElementById(\'overlay-panel\').style.display = \'none\';">MAIN MENU</button>';
+                    content.innerHTML = html;
+                    document.getElementById('overlay-panel').style.display = 'block';
+                    return;
+                }
+            } else {
+                html = '<h1 style="color: #ff0000;">DEFEATED</h1>';
+                html += `<p>Kills: ${gameState.kills}</p>`;
+                html += `<p>Abilities Unlocked: ${gameState.unlockedAbilities.length}</p>`;
+            }
+
+            html = html || '';
+            html += '<button onclick="startCampaign()">RESTART</button>';
+            html += '<button onclick="showMenu(); document.getElementById(\'overlay-panel\').style.display = \'none\';">MAIN MENU</button>';
+            content.innerHTML = html;
+            document.getElementById('overlay-panel').style.display = 'block';
+        }
+
+        function drawMenu() {
+            ctx.fillStyle = '#0f0f1e';
+            ctx.fillRect(0, 0, config.CANVAS_WIDTH, config.CANVAS_HEIGHT);
+
+            // Border walls
+            ctx.strokeStyle = 'rgba(255, 0, 110, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(20, 20, config.CANVAS_WIDTH - 40, config.CANVAS_HEIGHT - 40);
+
+            // Floating debris particles
+            ctx.fillStyle = 'rgba(255, 0, 110, 0.2)';
+            for (let i = 0; i < 20; i++) {
+                const x = (Date.now() * 0.01 + i * 60) % config.CANVAS_WIDTH;
+                const y = (Date.now() * 0.005 + i * 30) % config.CANVAS_HEIGHT;
+                ctx.beginPath();
+                ctx.arc(x, y, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function gameLoop() {
+            ctx.fillStyle = '#0f0f1e';
+            ctx.fillRect(0, 0, config.CANVAS_WIDTH, config.CANVAS_HEIGHT);
+
+            if (gameState.mode === 'menu') {
+                drawMenu();
+                requestAnimationFrame(gameLoop);
+                return;
+            }
+
+            if (!gameState.running) {
+                requestAnimationFrame(gameLoop);
+                return;
+            }
+
+            // Update
+            player.update();
+
+            if (gameState.mode === 'campaign' || gameState.mode === 'boss') {
+                spawnTimer++;
+                if (spawnTimer > config.SPAWN_CHECK_INTERVAL) {
+                    if (gameState.currentEnemies.length < config.MAX_ENEMIES && gameState.kills < config.WIN_KILL_COUNT) {
+                        spawnEnemy();
+                    }
+                    spawnTimer = 0;
+                }
+            }
+
+            // Campaign/Boss enemies
+            for (let i = gameState.currentEnemies.length - 1; i >= 0; i--) {
+                const enemy = gameState.currentEnemies[i];
+                enemy.update({ x: player.x, y: player.y });
+
+                const attack = enemy.attack({ x: player.x, y: player.y });
+                if (attack.hit) {
+                    player.hp -= attack.damage;
+                }
+
+                if (enemy.hp <= 0) {
+                    gameState.currentEnemies.splice(i, 1);
+                    gameState.kills++;
+
+                    if (gameState.mode === 'endless') {
+                        gameState.endless_score += 10 * gameState.endless_wave;
+                    }
+
+                    if (Math.random() < 0.5) {
+                        const abilityNames = Object.keys(ABILITY_SPECS);
+                        const randomAbility = abilityNames[Math.floor(Math.random() * abilityNames.length)];
+                        player.addAbility(randomAbility);
+                    }
+
+                    createExplosion(enemy.x, enemy.y, '#00ff88');
+
+                    if (gameState.mode === 'campaign' && gameState.kills >= config.WIN_KILL_COUNT) {
+                        startBossFight();
+                    }
+                }
+            }
+
+            // Boss minions
+            for (let i = gameState.bossMinions.length - 1; i >= 0; i--) {
+                const minion = gameState.bossMinions[i];
+                minion.update({ x: player.x, y: player.y });
+
+                const attack = minion.attack({ x: player.x, y: player.y });
+                if (attack.hit) {
+                    player.hp -= attack.damage;
+                }
+
+                if (minion.hp <= 0) {
+                    gameState.bossMinions.splice(i, 1);
+                    createExplosion(minion.x, minion.y, '#ff6666');
+                }
+            }
+
+            // Boss
+            if (currentBoss) {
+                currentBoss.update({ x: player.x, y: player.y });
+
+                const attack = currentBoss.attack({ x: player.x, y: player.y });
+                if (attack.hit) {
+                    player.hp -= attack.damage;
+                    screenShake(15);
+                }
+
+                if (currentBoss.hp <= 0) {
+                    createExplosion(currentBoss.x, currentBoss.y, '#ff4444');
+                    for (let i = 0; i < 50; i++) {
+                        const angle = (Math.PI * 2 * i) / 50;
+                        const vx = Math.cos(angle) * 15;
+                        const vy = Math.sin(angle) * 15;
+                        gameState.particles.push(new Particle(currentBoss.x, currentBoss.y, vx, vy, '#ff0000', 40));
+                    }
+                    screenShake(50);
+                    endGame(true);
+                }
+            }
+
+            // Particles
+            for (let i = gameState.particles.length - 1; i >= 0; i--) {
+                gameState.particles[i].update();
+                if (gameState.particles[i].life <= 0) {
+                    gameState.particles.splice(i, 1);
+                }
+            }
+
+            // Draw
+            gameState.currentEnemies.forEach(e => e.draw());
+            gameState.bossMinions.forEach(m => m.draw());
+            if (currentBoss) currentBoss.draw();
+            player.draw(true);
+            gameState.particles.forEach(p => p.draw());
+
+            updateUI();
+
+            // Check game over
+            if (player.hp <= 0) {
+                endGame(false);
+                return;
+            }
+
+            // Endless mode wave check
+            if (gameState.mode === 'endless' && gameState.currentEnemies.length === 0 && gameState.bossMinions.length === 0) {
+                endGame(true, true);
+                return;
+            }
+
+            // Mouse punch
+            canvas.addEventListener('click', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                const result = player.punch(mouseX, mouseY);
+                if (result && result.hit) {
+                    for (let enemy of gameState.currentEnemies) {
+                        const dist = Math.hypot(enemy.x - mouseX, enemy.y - mouseY);
+                        if (dist < 80) {
+                            enemy.hp -= result.damage;
+                            createExplosion(enemy.x, enemy.y, '#ffff00');
+                            screenShake(3);
+                            break;
+                        }
+                    }
+                    for (let minion of gameState.bossMinions) {
+                        const dist = Math.hypot(minion.x - mouseX, minion.y - mouseY);
+                        if (dist < 80) {
+                            minion.hp -= result.damage;
+                            createExplosion(minion.x, minion.y, '#ffff00');
+                            screenShake(3);
+                            break;
+                        }
+                    }
+                    if (currentBoss) {
+                        const dist = Math.hypot(currentBoss.x - mouseX, currentBoss.y - mouseY);
+                        if (dist < 100) {
+                            currentBoss.hp -= result.damage;
+                            createExplosion(currentBoss.x, currentBoss.y, '#ffff00');
+                            screenShake(5);
+                        }
+                    }
+                }
+            });
+
+            // Ability keys
+            for (let i = 1; i <= 8; i++) {
+                if (keys[String(i)]) {
+                    keys[String(i)] = false;
+                    const ability = player.useAbility(i - 1);
+                    if (ability) {
+                        for (let enemy of gameState.currentEnemies) {
+                            ability.effect(enemy, player);
+                        }
+                        for (let minion of gameState.bossMinions) {
+                            ability.effect(minion, player);
+                        }
+                        if (currentBoss) {
+                            ability.effect(currentBoss, player);
+                        }
+                    }
+                }
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Key tracking
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            if (['w', 'W', 'a', 'A', 's', 'S', 'd', 'D'].includes(e.key)) {
+                keys[e.key.toUpperCase()] = true;
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+            if (['w', 'W', 'a', 'A', 's', 'S', 'd', 'D'].includes(e.key)) {
+                keys[e.key.toUpperCase()] = false;
+            }
+        });
+
+        // Start
+        showMenu();
+    </script>
+</body>
+</html>
