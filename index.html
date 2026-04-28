@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stick Viltrumite Arena - 3D</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 100%;
+            height: 100vh;
+            background: #0f0f1e;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+
+        #canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            color: #fff;
+        }
+
+        .stat-panel {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #ff006e;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            line-height: 1.6;
+            backdrop-filter: blur(5px);
+            pointer-events: auto;
+        }
+
+        #player-stats {
+            top: 15px;
+            left: 15px;
+            min-width: 200px;
+        }
+
+        #enemy-stats {
+            top: 15px;
+            right: 15px;
+            min-width: 200px;
+            text-align: right;
+        }
+
+        #boss-stats {
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            min-width: 300px;
+            text-align: center;
+            border-color: #ff4444;
+            background: rgba(255, 0, 0, 0.15);
+        }
+
+        .health-bar {
+            background: #1a1a2e;
+            border: 1px solid #ff006e;
+            width: 120px;
+            height: 8px;
+            margin-top: 4px;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff88, #00cc6a);
+            width: 100%;
+            transition: width 0.15s;
+        }
+
+        .boss-health-bar {
+            background: #1a1a2e;
+            border: 2px solid #ff4444;
+            width: 280px;
+            height: 12px;
+            margin-top: 8px;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .boss-health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff0000, #ff6666);
+            width: 100%;
+            transition: width 0.2s;
+        }
+
+        .stat-label {
+            color: #ff006e;
+            font-weight: bold;
+        }
+
+        .stat-value {
+            color: #00ff88;
+        }
+
+        #wave-info {
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            color: #00ff88;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        #abilities {
+            position: absolute;
+            bottom: 20px;
+            left: 15px;
+            pointer-events: auto;
+        }
+
+        .ability-slot {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 45px;
+            height: 45px;
+            border: 2px solid #ff006e;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 10px;
+            color: #ddd;
+            margin: 4px;
+            transition: all 0.2s;
+        }
+
+        .ability-slot.available {
+            background: rgba(0, 255, 136, 0.3);
+            border-color: #00ff88;
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+        }
+
+        .ability-slot.cooldown {
+            background: rgba(255, 0, 110, 0.2);
+            opacity: 0.6;
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            right: 15px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 1px solid #ff006e;
+            padding: 12px;
+            font-size: 11px;
+            line-height: 1.8;
+            max-width: 200px;
+            border-radius: 4px;
+            pointer-events: auto;
+        }
+
+        .controls-header {
+            color: #00ff88;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        #menu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            border: 3px solid #ff006e;
+            padding: 40px;
+            text-align: center;
+            border-radius: 8px;
+            z-index: 1000;
+            pointer-events: auto;
+        }
+
+        #menu h1 {
+            color: #00ff88;
+            font-size: 36px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px #00ff88;
+        }
+
+        #menu button {
+            display: block;
+            width: 200px;
+            padding: 15px 30px;
+            margin: 15px auto;
+            background: rgba(255, 0, 110, 0.2);
+            border: 2px solid #ff006e;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        #menu button:hover {
+            background: rgba(0, 255, 136, 0.3);
+            border-color: #00ff88;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.6);
+            transform: scale(1.05);
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #00ff88;
+            font-size: 18px;
+            text-align: center;
+            z-index: 500;
+            pointer-events: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        #loading.pulse {
+            animation: pulse 1s infinite;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div id="ui">
+        <div id="menu" style="display: none;">
+            <h1>⚔ STICK VILTRUMITE ARENA ⚔</h1>
+            <p style="color: #ddd; margin-bottom: 20px;">3D Physics Combat</p>
+            <button onclick="window.gameEngine.startCampaign()">👊 FIGHT</button>
+            <button id="endless-btn" onclick="window.gameEngine.startEndless()" disabled>∞ ENDLESS</button>
+            <button onclick="window.gameEngine.showAbilities()">⚡ ABILITIES</button>
+            <button onclick="window.location.reload()">✕ QUIT</button>
+        </div>
+
+        <div id="loading">
+            <div class="pulse">Loading Game...</div>
+        </div>
+
+        <div id="player-stats" class="stat-panel" style="display: none;">
+            <div><span class="stat-label">PLAYER</span></div>
+            <div class="health-bar">
+                <div class="health-fill" id="player-health"></div>
+            </div>
+            <div><span class="stat-value" id="player-hp">100/100</span></div>
+            <div style="margin-top: 8px; color: #888; font-size: 11px;">
+                <div>Kills: <span id="player-kills">0</span></div>
+            </div>
+        </div>
+
+        <div id="enemy-stats" class="stat-panel" style="display: none;">
+            <div><span class="stat-label">TARGET</span></div>
+            <div class="health-bar">
+                <div class="health-fill" id="enemy-health"></div>
+            </div>
+            <div><span class="stat-value" id="enemy-hp">0/0</span></div>
+        </div>
+
+        <div id="boss-stats" class="stat-panel" style="display: none;">
+            <div style="color: #ff4444; font-weight: bold; font-size: 14px;">⚠ THRAGG - WARLORD ⚠</div>
+            <div class="boss-health-bar">
+                <div class="boss-health-fill" id="boss-health"></div>
+            </div>
+            <div><span class="stat-value" id="boss-hp">0/0</span></div>
+            <div style="margin-top: 8px; color: #ff6666; font-size: 10px;">
+                PHASE: <span id="boss-phase">1</span>
+            </div>
+        </div>
+
+        <div id="wave-info" style="display: none;">
+            <div style="color: #ff006e;">ENEMIES DEFEATED</div>
+            <div style="font-size: 32px; margin-top: 4px; color: #00ff88;">
+                <span id="kills-display">0</span>
+            </div>
+        </div>
+
+        <div id="abilities" style="display: none;">
+            <div style="color: #888; font-size: 11px; margin-bottom: 8px;">ABILITIES</div>
+            <div id="ability-slots"></div>
+        </div>
+
+        <div id="controls" style="display: none;">
+            <div class="controls-header">CONTROLS</div>
+            <div>WASD: Move</div>
+            <div>Mouse: Look/Aim</div>
+            <div>Left Click: Punch</div>
+            <div>Q-I: Abilities</div>
+        </div>
+    </div>
+
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- Cannon Physics -->
+    <script src="https://cdn.jsdelivr.net/npm/cannon@0.20.0/build/cannon.js"></script>
+    
+    <!-- Tween for animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/r17/Tween.js"></script>
+
+    <!-- Game Scripts -->
+    <script src="config.js"></script>
+    <script src="physics-body.js"></script>
+    <script src="stick-figure.js"></script>
+    <script src="particle-system.js"></script>
+    <script src="abilities.js"></script>
+    <script src="game-engine.js"></script>
+</body>
+</html>
